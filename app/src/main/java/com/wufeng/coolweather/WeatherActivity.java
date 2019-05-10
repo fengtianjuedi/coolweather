@@ -1,5 +1,6 @@
 package com.wufeng.coolweather;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
@@ -26,6 +27,7 @@ import com.wufeng.coolweather.gson.WeatherAQI;
 import com.wufeng.coolweather.gson.WeatherForecast;
 import com.wufeng.coolweather.gson.WeatherLifeStyle;
 import com.wufeng.coolweather.gson.WeatherNow;
+import com.wufeng.coolweather.service.AutoUpdateService;
 import com.wufeng.coolweather.util.HttpUtil;
 import com.wufeng.coolweather.util.Utility;
 
@@ -121,12 +123,18 @@ public class WeatherActivity extends AppCompatActivity {
         swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                requestWeatherNow(weatherId);
-                requestWeatherForecast(weatherId);
-                requestWeatherAQI(weatherId);
-                requestWeatherLifeStyle(weatherId);
+                SharedPreferences sharedPreferences1 = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
+                String id = sharedPreferences1.getString("weather_id", null);
+                if (id != null){
+                    requestWeatherNow(id);
+                    requestWeatherForecast(id);
+                    requestWeatherAQI(id);
+                    requestWeatherLifeStyle(id);
+                }
             }
         });
+        Intent intent = new Intent(this, AutoUpdateService.class);
+        startService(intent);
     }
 
     public void requestWeatherNow(final String weatherId){
