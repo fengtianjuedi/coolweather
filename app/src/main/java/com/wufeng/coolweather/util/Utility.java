@@ -6,9 +6,17 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import com.wufeng.coolweather.db.City;
 import com.wufeng.coolweather.db.County;
 import com.wufeng.coolweather.db.Province;
+import com.wufeng.coolweather.gson.Weather;
+import com.wufeng.coolweather.gson.WeatherAQI;
+import com.wufeng.coolweather.gson.WeatherForecast;
+import com.wufeng.coolweather.gson.WeatherLifeStyle;
+import com.wufeng.coolweather.gson.WeatherNow;
+
+import java.lang.reflect.Type;
 
 public class Utility {
     public static boolean handleProvinceResponse(String response){
@@ -56,5 +64,41 @@ public class Utility {
             county.save();
         }
         return true;
+    }
+
+    public static WeatherNow handleWeatherNowResponse(String response){
+        if (TextUtils.isEmpty(response))
+            return null;
+        Gson gson = new Gson();
+        JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
+        JsonArray jsonArray = gson.fromJson(jsonObject.get("HeWeather6"), JsonArray.class);
+        return gson.fromJson(jsonArray.get(0), WeatherNow.class);
+    }
+
+    public static WeatherAQI handleWeatherAQIResponse(String response){
+        if (TextUtils.isEmpty(response))
+            return null;
+        Gson gson = new Gson();
+        JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
+        JsonArray jsonArray = gson.fromJson(jsonObject.get("HeWeather6"), JsonArray.class);
+        return gson.fromJson(jsonArray.get(0), WeatherAQI.class);
+    }
+
+    public static WeatherForecast handleWeatherForecastResponse(String response){
+        if (TextUtils.isEmpty(response))
+            return null;
+        Gson gson = new Gson();
+        JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
+        JsonArray jsonArray = gson.fromJson(jsonObject.get("HeWeather6"), JsonArray.class);
+        return gson.fromJson(jsonArray.get(0), WeatherForecast.class);
+    }
+
+    public static WeatherLifeStyle handleWeatherLifeStyleResponse(String response){
+        if (TextUtils.isEmpty(response))
+            return null;
+        Gson gson = new Gson();
+        JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
+        JsonArray jsonArray = gson.fromJson(jsonObject.get("HeWeather6"), JsonArray.class);
+        return gson.fromJson(jsonArray.get(0), WeatherLifeStyle.class);
     }
 }
