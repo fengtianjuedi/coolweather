@@ -83,10 +83,21 @@ public class AreaFragment extends Fragment {
                     SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(getContext()).edit();
                     editor.putString("weather_id", weatherId);
                     editor.apply();
-                    Intent intent = new Intent(getActivity(), WeatherActivity.class);
-                    intent.putExtra("weather_id", weatherId);
-                    startActivity(intent);
-                    getActivity().finish();
+                    if (getActivity() instanceof MainActivity){
+                        Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                        intent.putExtra("weather_id", weatherId);
+                        startActivity(intent);
+                        getActivity().finish();
+                    }else if (getActivity() instanceof WeatherActivity){
+                        WeatherActivity weatherActivity = (WeatherActivity)getActivity();
+                        weatherActivity.drawerLayout.closeDrawers();
+                        weatherActivity.swipeRefreshLayout.setRefreshing(true);
+                        weatherActivity.requestWeatherNow(weatherId);
+                        weatherActivity.requestWeatherForecast(weatherId);
+                        weatherActivity.requestWeatherAQI(weatherId);
+                        weatherActivity.requestWeatherLifeStyle(weatherId);
+                    }
+
                 }
             }
         });

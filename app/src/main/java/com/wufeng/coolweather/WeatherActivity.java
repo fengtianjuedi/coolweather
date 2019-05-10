@@ -4,10 +4,14 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
 import android.preference.PreferenceManager;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -45,6 +49,10 @@ public class WeatherActivity extends AppCompatActivity {
     private TextView carWash;
     private TextView sport;
     private ImageView bingIV;
+    private Button homeBT;
+
+    public SwipeRefreshLayout swipeRefreshLayout;
+    public DrawerLayout drawerLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,13 +72,23 @@ public class WeatherActivity extends AppCompatActivity {
         carWash = findViewById(R.id.carWashTV);
         sport = findViewById(R.id.sportTV);
         bingIV = findViewById(R.id.bingIV);
+        swipeRefreshLayout = findViewById(R.id.swipeRefresh);
+        swipeRefreshLayout.setColorSchemeResources(R.color.colorPrimary);
+        drawerLayout = findViewById(R.id.drawerLayout);
+        homeBT = findViewById(R.id.homeBT);
+        homeBT.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                drawerLayout.openDrawer(GravityCompat.START);
+            }
+        });
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherNowString = sharedPreferences.getString("weatherNow", null);
         String weatherLifeStyleString = sharedPreferences.getString("weatherLifeStyle", null);
         String weatherForecastString = sharedPreferences.getString("weatherForecast", null);
         String weatherAQIString = sharedPreferences.getString("weatherAQI", null);
         String bingImage = sharedPreferences.getString("bingImage", null);
-        String weatherId = getIntent().getStringExtra("weather_id");
+        final String weatherId = getIntent().getStringExtra("weather_id");
         if (bingImage != null){
             Glide.with(this).load(bingImage).into(bingIV);
         }else{
@@ -100,9 +118,18 @@ public class WeatherActivity extends AppCompatActivity {
         }else {
             requestWeatherAQI(weatherId);
         }
+        swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                requestWeatherNow(weatherId);
+                requestWeatherForecast(weatherId);
+                requestWeatherAQI(weatherId);
+                requestWeatherLifeStyle(weatherId);
+            }
+        });
     }
 
-    private void requestWeatherNow(final String weatherId){
+    public void requestWeatherNow(final String weatherId){
         String url = "https://free-api.heweather.net/s6/weather/now?location=" + weatherId + "&key=2989582eaab64d21b1305a9a78c8915a";
         HttpUtil.sendOkHttpRequest(url, new Callback() {
             @Override
@@ -137,7 +164,7 @@ public class WeatherActivity extends AppCompatActivity {
         loadBackgroundImage();
     }
 
-    private void requestWeatherLifeStyle(final String weatherId){
+    public void requestWeatherLifeStyle(final String weatherId){
         String url = "https://free-api.heweather.net/s6/weather/lifestyle?location=" + weatherId + "&key=2989582eaab64d21b1305a9a78c8915a";
         HttpUtil.sendOkHttpRequest(url, new Callback() {
             @Override
@@ -146,6 +173,7 @@ public class WeatherActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        swipeRefreshLayout.setRefreshing(false);
                     }
                 });
             }
@@ -165,13 +193,14 @@ public class WeatherActivity extends AppCompatActivity {
                         }else {
                             Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
                         }
+                        swipeRefreshLayout.setRefreshing(false);
                     }
                 });
             }
         });
     }
 
-    private void requestWeatherForecast(final String weatherId){
+    public void requestWeatherForecast(final String weatherId){
         String url = "https://free-api.heweather.net/s6/weather/forecast?location=" + weatherId + "&key=2989582eaab64d21b1305a9a78c8915a";
         HttpUtil.sendOkHttpRequest(url, new Callback() {
             @Override
@@ -205,7 +234,7 @@ public class WeatherActivity extends AppCompatActivity {
         });
     }
 
-    private void requestWeatherAQI(final String weatherId){
+    public void requestWeatherAQI(final String weatherId){
         String url = "https://free-api.heweather.net/s6/air/now?location=" + weatherId + "&key=2989582eaab64d21b1305a9a78c8915a";
         HttpUtil.sendOkHttpRequest(url, new Callback() {
             @Override
