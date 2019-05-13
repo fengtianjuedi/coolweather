@@ -16,6 +16,7 @@ import com.wufeng.coolweather.gson.WeatherForecast;
 import com.wufeng.coolweather.gson.WeatherLifeStyle;
 import com.wufeng.coolweather.gson.WeatherNow;
 
+import java.io.SyncFailedException;
 import java.lang.reflect.Type;
 
 public class Utility {
@@ -66,39 +67,13 @@ public class Utility {
         return true;
     }
 
-    public static WeatherNow handleWeatherNowResponse(String response){
+    public static <T extends Weather> T handleWeatherResponse(String response, Class<T> type){
         if (TextUtils.isEmpty(response))
             return null;
         Gson gson = new Gson();
         JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
         JsonArray jsonArray = gson.fromJson(jsonObject.get("HeWeather6"), JsonArray.class);
-        return gson.fromJson(jsonArray.get(0), WeatherNow.class);
+        return gson.fromJson(jsonArray.get(0), type);
     }
 
-    public static WeatherAQI handleWeatherAQIResponse(String response){
-        if (TextUtils.isEmpty(response))
-            return null;
-        Gson gson = new Gson();
-        JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
-        JsonArray jsonArray = gson.fromJson(jsonObject.get("HeWeather6"), JsonArray.class);
-        return gson.fromJson(jsonArray.get(0), WeatherAQI.class);
-    }
-
-    public static WeatherForecast handleWeatherForecastResponse(String response){
-        if (TextUtils.isEmpty(response))
-            return null;
-        Gson gson = new Gson();
-        JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
-        JsonArray jsonArray = gson.fromJson(jsonObject.get("HeWeather6"), JsonArray.class);
-        return gson.fromJson(jsonArray.get(0), WeatherForecast.class);
-    }
-
-    public static WeatherLifeStyle handleWeatherLifeStyleResponse(String response){
-        if (TextUtils.isEmpty(response))
-            return null;
-        Gson gson = new Gson();
-        JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
-        JsonArray jsonArray = gson.fromJson(jsonObject.get("HeWeather6"), JsonArray.class);
-        return gson.fromJson(jsonArray.get(0), WeatherLifeStyle.class);
-    }
 }

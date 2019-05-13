@@ -1,16 +1,22 @@
 package com.wufeng.coolweather.service;
 
 import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.BitmapFactory;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
+import android.support.v4.app.NotificationCompat;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.wufeng.coolweather.R;
 import com.wufeng.coolweather.WeatherActivity;
 import com.wufeng.coolweather.gson.WeatherAQI;
 import com.wufeng.coolweather.gson.WeatherForecast;
@@ -69,11 +75,12 @@ public class AutoUpdateService extends Service {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final  String responseText = response.body().string();
-                final WeatherNow weatherNow = Utility.handleWeatherNowResponse(responseText);
+                final WeatherNow weatherNow = Utility.handleWeatherResponse(responseText, WeatherNow.class);
                 if (weatherNow != null && "ok".equals(weatherNow.status)){
                     SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(AutoUpdateService.this).edit();
                     editor.putString("weatherNow", responseText);
                     editor.apply();
+                    pushNotification();
                 }
             }
         });
@@ -90,7 +97,7 @@ public class AutoUpdateService extends Service {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final  String responseText = response.body().string();
-                final WeatherLifeStyle weatherLifeStyle = Utility.handleWeatherLifeStyleResponse(responseText);
+                final WeatherLifeStyle weatherLifeStyle = Utility.handleWeatherResponse(responseText, WeatherLifeStyle.class);
                 if (weatherLifeStyle != null && "ok".equals(weatherLifeStyle.status)){
                     SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(AutoUpdateService.this).edit();
                     editor.putString("weatherLifeStyle", responseText);
@@ -111,7 +118,7 @@ public class AutoUpdateService extends Service {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final  String responseText = response.body().string();
-                final WeatherForecast weatherForecast = Utility.handleWeatherForecastResponse(responseText);
+                final WeatherForecast weatherForecast = Utility.handleWeatherResponse(responseText, WeatherForecast.class);
                 if (weatherForecast != null && "ok".equals(weatherForecast.status)){
                     SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(AutoUpdateService.this).edit();
                     editor.putString("weatherForecast", responseText);
@@ -132,7 +139,7 @@ public class AutoUpdateService extends Service {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final String responseText = response.body().string();
-                final WeatherAQI weatherAQI = Utility.handleWeatherAQIResponse(responseText);
+                final WeatherAQI weatherAQI = Utility.handleWeatherResponse(responseText, WeatherAQI.class);
                 if (weatherAQI != null && "ok".equals(weatherAQI.status)) {
                     SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(AutoUpdateService.this).edit();
                     editor.putString("weatherAQI", responseText);
@@ -158,5 +165,24 @@ public class AutoUpdateService extends Service {
                 editor.apply();
             }
         });
+    }
+
+    private void pushNotification(){
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        String weatherId = sharedPreferences.getString("weather_id", null);
+        Intent intent = new Intent(this, WeatherActivity.class);
+        intent.putExtra("weather_id", weatherId);
+        PendingIntent pi = PendingIntent.getService(this, 0, intent, 0);
+        NotificationManager manager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+        Notification notification = new NotificationCompat.Builder(getApplicationContext(), "default")
+                .setContentTitle("你有新的天气信息！")
+                .setContentText("天气变化，注意-----")
+                .setWhen(System.currentTimeMillis())
+                .setSmallIcon(R.drawable.clound)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.drawable.clound))
+                .setAutoCancel(true)
+                .setContentIntent(pi)
+                .build();
+        manager.notify(1, notification);
     }
 }

@@ -97,25 +97,25 @@ public class WeatherActivity extends AppCompatActivity {
             loadBackgroundImage();
         }
         if (weatherNowString != null){
-            WeatherNow weatherNow = Utility.handleWeatherNowResponse(weatherNowString);
+            WeatherNow weatherNow = Utility.handleWeatherResponse(weatherNowString, WeatherNow.class);
             showWeatherNow(weatherNow);
         }else{
            requestWeatherNow(weatherId);
         }
         if (weatherLifeStyleString != null){
-            WeatherLifeStyle weatherLifeStyle = Utility.handleWeatherLifeStyleResponse(weatherLifeStyleString);
+            WeatherLifeStyle weatherLifeStyle = Utility.handleWeatherResponse(weatherLifeStyleString, WeatherLifeStyle.class);
             showWeatherLifeStyle(weatherLifeStyle);
         }else{
             requestWeatherLifeStyle(weatherId);
         }
         if (weatherForecastString != null){
-            WeatherForecast weatherForecast = Utility.handleWeatherForecastResponse(weatherForecastString);
+            WeatherForecast weatherForecast = Utility.handleWeatherResponse(weatherForecastString, WeatherForecast.class);
             showWeatherForecast(weatherForecast);
         }else{
             requestWeatherForecast(weatherId);
         }
         if (weatherAQIString != null){
-            WeatherAQI weatherAQI = Utility.handleWeatherAQIResponse(weatherAQIString);
+            WeatherAQI weatherAQI = Utility.handleWeatherResponse(weatherAQIString, WeatherAQI.class);
             showWeatherAQI(weatherAQI);
         }else {
             requestWeatherAQI(weatherId);
@@ -153,7 +153,7 @@ public class WeatherActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final  String responseText = response.body().string();
-                final WeatherNow weatherNow = Utility.handleWeatherNowResponse(responseText);
+                final WeatherNow weatherNow = Utility.handleWeatherResponse(responseText, WeatherNow.class);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -189,7 +189,7 @@ public class WeatherActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final  String responseText = response.body().string();
-                final WeatherLifeStyle weatherLifeStyle = Utility.handleWeatherLifeStyleResponse(responseText);
+                final WeatherLifeStyle weatherLifeStyle = Utility.handleWeatherResponse(responseText, WeatherLifeStyle.class);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -224,7 +224,7 @@ public class WeatherActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final  String responseText = response.body().string();
-                final WeatherForecast weatherForecast = Utility.handleWeatherForecastResponse(responseText);
+                final WeatherForecast weatherForecast = Utility.handleWeatherResponse(responseText, WeatherForecast.class);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -258,7 +258,7 @@ public class WeatherActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final  String responseText = response.body().string();
-                final WeatherAQI weatherAQI = Utility.handleWeatherAQIResponse(responseText);
+                final WeatherAQI weatherAQI = Utility.handleWeatherResponse(responseText, WeatherAQI.class);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
