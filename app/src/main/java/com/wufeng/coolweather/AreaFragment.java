@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
@@ -20,21 +21,37 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.gson.Gson;
 import com.wufeng.coolweather.db.City;
 import com.wufeng.coolweather.db.County;
 import com.wufeng.coolweather.db.Province;
+import com.wufeng.coolweather.network.ServiceCreator;
+import com.wufeng.coolweather.network.api.PlaceService;
 import com.wufeng.coolweather.util.HttpUtil;
 import com.wufeng.coolweather.util.Utility;
 
 import org.litepal.crud.DataSupport;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.reactivex.Observer;
+import io.reactivex.Scheduler;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.HttpUrl;
+import okhttp3.Request;
 import okhttp3.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 
 public class AreaFragment extends Fragment {
@@ -54,6 +71,9 @@ public class AreaFragment extends Fragment {
     private Province selectedProvince;
     private City selectedCity;
     private int currentLevel;
+    private Disposable provincesDisposable;
+    private Disposable cityDisposable;
+    private Disposable countyDisposable;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -97,7 +117,6 @@ public class AreaFragment extends Fragment {
                         weatherActivity.requestWeatherAQI(weatherId);
                         weatherActivity.requestWeatherLifeStyle(weatherId);
                     }
-
                 }
             }
         });
@@ -114,6 +133,17 @@ public class AreaFragment extends Fragment {
         queryProvince();
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (provincesDisposable != null &&!provincesDisposable.isDisposed())
+            provincesDisposable.dispose();
+        if (cityDisposable != null && !cityDisposable.isDisposed())
+            cityDisposable.dispose();
+        if (countyDisposable != null && !countyDisposable.isDisposed())
+            countyDisposable.dispose();
+    }
+
     private void queryProvince(){
         titleText.setText("中国");
         backButton.setVisibility(View.GONE);
@@ -127,15 +157,14 @@ public class AreaFragment extends Fragment {
             listView.setSelection(0);
             currentLevel = LEVEL_PROVINCE;
         }else{
-            String url = "http://guolin.tech/api/china";
-            queryFromServer(url, LEVEL_PROVINCE);
+            requestProvinces();
         }
     }
 
     private void queryCity(){
         titleText.setText(selectedProvince.getProvinceName());
         backButton.setVisibility(View.VISIBLE);
-        cityList = DataSupport.where("provinceId = ?", String.valueOf(selectedProvince.getId())).find(City.class);
+        cityList = DataSupport.where("provinceId = ?", String.valueOf(selectedProvince.getProvinceCode())).find(City.class);
         if (cityList.size() > 0){
             dataList.clear();
             for (City item : cityList){
@@ -146,15 +175,14 @@ public class AreaFragment extends Fragment {
             currentLevel = LEVEL_CITY;
         }else {
             int provinceCode = selectedProvince.getProvinceCode();
-            String url = "http://guolin.tech/api/china/" + provinceCode;
-            queryFromServer(url, LEVEL_CITY);
+            requestCities(provinceCode);
         }
     }
 
     private void queryCounty(){
-                titleText.setText(selectedCity.getCityName());
+        titleText.setText(selectedCity.getCityName());
         backButton.setVisibility(View.VISIBLE);
-        countyList = DataSupport.where("cityId = ?", String.valueOf(selectedCity.getId())).find(County.class);
+        countyList = DataSupport.where("cityId = ?", String.valueOf(selectedCity.getCityCode())).find(County.class);
         if (countyList.size() > 0){
             dataList.clear();
             for (County item : countyList){
@@ -166,53 +194,92 @@ public class AreaFragment extends Fragment {
         }else{
             int provinceCode = selectedProvince.getProvinceCode();
             int cityCode = selectedCity.getCityCode();
-            String url = "http://guolin.tech/api/china/" + provinceCode + "/" + cityCode;
-            queryFromServer(url, LEVEL_COUNTY);
+            requestCounties(provinceCode, cityCode);
         }
     }
 
-    private void queryFromServer(String url, final int level){
+    private void requestProvinces(){
         showProgressBar();
-        HttpUtil.sendOkHttpRequest(url, new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                getActivity().runOnUiThread(new Runnable() {
+        provincesDisposable = ServiceCreator.placeService.getProvinces()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
                     @Override
-                    public void run() {
+                    public void accept(String s) throws Exception {
+                        closeProgressBar();
+                        boolean result;
+                        result = Utility.handleProvinceResponse(s);
+                        if (result) {
+                            queryProvince();
+                        }
+                        if (!provincesDisposable.isDisposed())
+                            provincesDisposable.dispose();
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
                         closeProgressBar();
                         Toast.makeText(getContext(), "加载失败", Toast.LENGTH_SHORT).show();
+                        if (!provincesDisposable.isDisposed())
+                            provincesDisposable.dispose();
                     }
                 });
-            }
+    }
 
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String message = response.body().string();
-                boolean result = false;
-                if (level == LEVEL_PROVINCE){
-                    result = Utility.handleProvinceResponse(message);
-                }else if (level == LEVEL_CITY){
-                    result = Utility.handleCityResponse(message, selectedProvince.getId());
-                }else if (level == LEVEL_COUNTY){
-                    result = Utility.handleCountyResponse(message, selectedCity.getId());
-                }
-                if (result){
-                    getActivity().runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            closeProgressBar();
-                            if (level == LEVEL_PROVINCE){
-                                queryProvince();
-                            }else if (level == LEVEL_CITY){
-                                queryCity();
-                            }else if (level == LEVEL_COUNTY){
-                                queryCounty();
-                            }
+    private void requestCities(final int provinceId){
+        showProgressBar();
+        cityDisposable = ServiceCreator.placeService.getCities(provinceId)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
+                    @Override
+                    public void accept(String s) throws Exception {
+                        closeProgressBar();
+                        boolean result;
+                        result = Utility.handleCityResponse(s, provinceId);
+                        if (result){
+                            queryCity();
                         }
-                    });
-                }
-            }
-        });
+                        if (!cityDisposable.isDisposed())
+                            cityDisposable.dispose();
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        closeProgressBar();
+                        Toast.makeText(getContext(), "加载失败", Toast.LENGTH_SHORT).show();
+                        if (!cityDisposable.isDisposed())
+                            cityDisposable.dispose();
+                    }
+                });
+    }
+
+    private void requestCounties(final int provinceId, final int cityId){
+        showProgressBar();
+        countyDisposable = ServiceCreator.placeService.getCounties(provinceId, cityId)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
+                    @Override
+                    public void accept(String s) throws Exception {
+                        closeProgressBar();
+                        boolean result;
+                        result = Utility.handleCountyResponse(s, cityId);
+                        if (result){
+                            queryCounty();
+                        }
+                        if (!countyDisposable.isDisposed())
+                            countyDisposable.dispose();
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        closeProgressBar();
+                        Toast.makeText(getContext(), "加载失败", Toast.LENGTH_SHORT).show();
+                        if (!countyDisposable.isDisposed())
+                            countyDisposable.dispose();
+                    }
+                });
     }
 
     private void showProgressBar(){

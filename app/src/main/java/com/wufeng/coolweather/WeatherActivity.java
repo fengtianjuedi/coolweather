@@ -3,41 +3,35 @@ package com.wufeng.coolweather;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.os.Build;
+import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.wufeng.coolweather.gson.DailyForecast;
 import com.wufeng.coolweather.gson.LifeStyle;
-import com.wufeng.coolweather.gson.Weather;
 import com.wufeng.coolweather.gson.WeatherAQI;
 import com.wufeng.coolweather.gson.WeatherForecast;
 import com.wufeng.coolweather.gson.WeatherLifeStyle;
 import com.wufeng.coolweather.gson.WeatherNow;
+import com.wufeng.coolweather.network.ServiceCreator;
 import com.wufeng.coolweather.service.AutoUpdateService;
-import com.wufeng.coolweather.util.HttpUtil;
 import com.wufeng.coolweather.util.Utility;
 
-import java.io.IOException;
-import java.util.prefs.Preferences;
-import java.util.zip.Inflater;
-
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.Response;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
 
 public class WeatherActivity extends AppCompatActivity {
     private TextView titleCity;
@@ -52,6 +46,11 @@ public class WeatherActivity extends AppCompatActivity {
     private TextView sport;
     private ImageView bingIV;
     private Button homeBT;
+    private Disposable nowDisposable;
+    private Disposable lifestyleDisposable;
+    private Disposable forecastDisposable;
+    private Disposable aqiDisposable;
+    private Disposable bingImageDisposable;
 
     public SwipeRefreshLayout swipeRefreshLayout;
     public DrawerLayout drawerLayout;
@@ -137,143 +136,138 @@ public class WeatherActivity extends AppCompatActivity {
         startService(intent);
     }
 
-    public void requestWeatherNow(final String weatherId){
-        String url = "https://free-api.heweather.net/s6/weather/now?location=" + weatherId + "&key=2989582eaab64d21b1305a9a78c8915a";
-        HttpUtil.sendOkHttpRequest(url, new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (nowDisposable != null && !nowDisposable.isDisposed())
+            nowDisposable.dispose();
+        if (lifestyleDisposable != null && !lifestyleDisposable.isDisposed())
+            lifestyleDisposable.dispose();
+        if (forecastDisposable != null && !forecastDisposable.isDisposed())
+            forecastDisposable.dispose();
+        if (aqiDisposable != null && !aqiDisposable.isDisposed())
+            aqiDisposable.dispose();
+        if (bingImageDisposable != null && !bingImageDisposable.isDisposed())
+            bingImageDisposable.dispose();
+    }
 
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                final  String responseText = response.body().string();
-                final WeatherNow weatherNow = Utility.handleWeatherResponse(responseText, WeatherNow.class);
-                runOnUiThread(new Runnable() {
+    public void requestWeatherNow(final String weatherId){
+        nowDisposable = ServiceCreator.weatherService.getWeatherNow(weatherId, "2989582eaab64d21b1305a9a78c8915a")
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
                     @Override
-                    public void run() {
+                    public void accept(String s){
+                        WeatherNow weatherNow = Utility.handleWeatherResponse(s, WeatherNow.class);
                         if (weatherNow != null && "ok".equals(weatherNow.status)){
                             SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
-                            editor.putString("weatherNow", responseText);
+                            editor.putString("weatherNow", s);
                             editor.apply();
                             showWeatherNow(weatherNow);
                         }else {
                             Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
                         }
+                        loadBackgroundImage();
+                        if (!nowDisposable.isDisposed())
+                            nowDisposable.dispose();
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable){
+                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        if (!nowDisposable.isDisposed())
+                            nowDisposable.dispose();
                     }
                 });
-            }
-        });
-        loadBackgroundImage();
     }
 
     public void requestWeatherLifeStyle(final String weatherId){
-        String url = "https://free-api.heweather.net/s6/weather/lifestyle?location=" + weatherId + "&key=2989582eaab64d21b1305a9a78c8915a";
-        HttpUtil.sendOkHttpRequest(url, new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                runOnUiThread(new Runnable() {
+        lifestyleDisposable =  ServiceCreator.weatherService.getWeatherLifestyle(weatherId, "2989582eaab64d21b1305a9a78c8915a")
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
                     @Override
-                    public void run() {
-                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
-                        swipeRefreshLayout.setRefreshing(false);
-                    }
-                });
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                final  String responseText = response.body().string();
-                final WeatherLifeStyle weatherLifeStyle = Utility.handleWeatherResponse(responseText, WeatherLifeStyle.class);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
+                    public void accept(String s){
+                        WeatherLifeStyle weatherLifeStyle = Utility.handleWeatherResponse(s, WeatherLifeStyle.class);
                         if (weatherLifeStyle != null && "ok".equals(weatherLifeStyle.status)){
                             SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
-                            editor.putString("weatherLifeStyle", responseText);
+                            editor.putString("weatherLifeStyle", s);
                             editor.apply();
                             showWeatherLifeStyle(weatherLifeStyle);
                         }else {
                             Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
                         }
                         swipeRefreshLayout.setRefreshing(false);
+                        if (!lifestyleDisposable.isDisposed())
+                            lifestyleDisposable.dispose();
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable){
+                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        swipeRefreshLayout.setRefreshing(false);
+                        if (!lifestyleDisposable.isDisposed())
+                            lifestyleDisposable.dispose();
                     }
                 });
-            }
-        });
     }
 
     public void requestWeatherForecast(final String weatherId){
-        String url = "https://free-api.heweather.net/s6/weather/forecast?location=" + weatherId + "&key=2989582eaab64d21b1305a9a78c8915a";
-        HttpUtil.sendOkHttpRequest(url, new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                runOnUiThread(new Runnable() {
+        forecastDisposable = ServiceCreator.weatherService.getWeatherForecast(weatherId, "2989582eaab64d21b1305a9a78c8915a")
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
                     @Override
-                    public void run() {
-                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                final  String responseText = response.body().string();
-                final WeatherForecast weatherForecast = Utility.handleWeatherResponse(responseText, WeatherForecast.class);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
+                    public void accept(String s){
+                        WeatherForecast weatherForecast = Utility.handleWeatherResponse(s, WeatherForecast.class);
                         if (weatherForecast != null && "ok".equals(weatherForecast.status)){
                             SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
-                            editor.putString("weatherForecast", responseText);
+                            editor.putString("weatherForecast", s);
                             editor.apply();
                             showWeatherForecast(weatherForecast);
                         }else {
                             Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
                         }
+                        if (!forecastDisposable.isDisposed())
+                            forecastDisposable.dispose();
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable){
+                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        if (!forecastDisposable.isDisposed())
+                            forecastDisposable.dispose();
                     }
                 });
-            }
-        });
     }
 
     public void requestWeatherAQI(final String weatherId){
-        String url = "https://free-api.heweather.net/s6/air/now?location=" + weatherId + "&key=2989582eaab64d21b1305a9a78c8915a";
-        HttpUtil.sendOkHttpRequest(url, new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                runOnUiThread(new Runnable() {
+        aqiDisposable = ServiceCreator.weatherService.getWeatherAQI(weatherId, "2989582eaab64d21b1305a9a78c8915a")
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
                     @Override
-                    public void run() {
-                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                final  String responseText = response.body().string();
-                final WeatherAQI weatherAQI = Utility.handleWeatherResponse(responseText, WeatherAQI.class);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
+                    public void accept(String s){
+                        WeatherAQI weatherAQI = Utility.handleWeatherResponse(s, WeatherAQI.class);
                         if (weatherAQI != null && "ok".equals(weatherAQI.status)){
                             SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
-                            editor.putString("weatherAQI", responseText);
+                            editor.putString("weatherAQI", s);
                             editor.apply();
                             showWeatherAQI(weatherAQI);
                         }else {
                             Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
                         }
+                        if (!aqiDisposable.isDisposed())
+                            aqiDisposable.dispose();
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable){
+                        Toast.makeText(WeatherActivity.this, "获取天气信息失败", Toast.LENGTH_SHORT).show();
+                        if (!aqiDisposable.isDisposed())
+                            aqiDisposable.dispose();
                     }
                 });
-            }
-        });
     }
 
     private void showWeatherNow(WeatherNow weatherNow){
@@ -325,26 +319,26 @@ public class WeatherActivity extends AppCompatActivity {
     }
 
     private void loadBackgroundImage(){
-        String url = "http://guolin.tech/api/bing_pic";
-        HttpUtil.sendOkHttpRequest(url, new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                e.printStackTrace();
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                final String responseString = response.body().string();
-                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
-                editor.putString("bingImage", responseString);
-                editor.apply();
-                runOnUiThread(new Runnable() {
+        bingImageDisposable = ServiceCreator.placeService.getBingImage()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String>() {
                     @Override
-                    public void run() {
-                        Glide.with(WeatherActivity.this).load(responseString).into(bingIV);
+                    public void accept(String s){
+                        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+                        editor.putString("bingImage", s);
+                        editor.apply();
+                        Glide.with(WeatherActivity.this).load(s).into(bingIV);
+                        if (!bingImageDisposable.isDisposed())
+                            bingImageDisposable.dispose();
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable){
+                        throwable.printStackTrace();
+                        if (!bingImageDisposable.isDisposed())
+                            bingImageDisposable.dispose();
                     }
                 });
-            }
-        });
     }
 }
