@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
@@ -21,37 +20,22 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.gson.Gson;
 import com.wufeng.coolweather.db.City;
 import com.wufeng.coolweather.db.County;
 import com.wufeng.coolweather.db.Province;
 import com.wufeng.coolweather.network.ServiceCreator;
-import com.wufeng.coolweather.network.api.PlaceService;
-import com.wufeng.coolweather.util.HttpUtil;
 import com.wufeng.coolweather.util.Utility;
 
+import org.litepal.LitePal;
 import org.litepal.crud.DataSupport;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.reactivex.Observer;
-import io.reactivex.Scheduler;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.HttpUrl;
-import okhttp3.Request;
-import okhttp3.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
-import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 
 public class AreaFragment extends Fragment {
@@ -147,7 +131,7 @@ public class AreaFragment extends Fragment {
     private void queryProvince(){
         titleText.setText("中国");
         backButton.setVisibility(View.GONE);
-        provinceList = DataSupport.findAll(Province.class);
+        provinceList = LitePal.findAll(Province.class);
         if (provinceList.size() > 0){
             dataList.clear();
             for (Province item : provinceList){
@@ -164,7 +148,7 @@ public class AreaFragment extends Fragment {
     private void queryCity(){
         titleText.setText(selectedProvince.getProvinceName());
         backButton.setVisibility(View.VISIBLE);
-        cityList = DataSupport.where("provinceId = ?", String.valueOf(selectedProvince.getProvinceCode())).find(City.class);
+        cityList = LitePal.where("provinceId = ?", String.valueOf(selectedProvince.getProvinceCode())).find(City.class);
         if (cityList.size() > 0){
             dataList.clear();
             for (City item : cityList){
@@ -182,7 +166,7 @@ public class AreaFragment extends Fragment {
     private void queryCounty(){
         titleText.setText(selectedCity.getCityName());
         backButton.setVisibility(View.VISIBLE);
-        countyList = DataSupport.where("cityId = ?", String.valueOf(selectedCity.getCityCode())).find(County.class);
+        countyList = LitePal.where("cityId = ?", String.valueOf(selectedCity.getCityCode())).find(County.class);
         if (countyList.size() > 0){
             dataList.clear();
             for (County item : countyList){
